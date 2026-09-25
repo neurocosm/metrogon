@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111917">
+  <meta name="description" content="See your rhythm. A polygon metronome for focused practice.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="stylesheet" href="styles.css">
+  <title>Metrogon — See your rhythm</title>
+  <script src="version.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><a class="brand" href="./"><span>⬡</span> metrogon</a></header>
+    <section class="workspace" aria-label="Metronome">
+      <div class="stage">
+        <div class="stage-top"><span id="status">Ready to play</span></div>
+        <svg id="visual" viewBox="0 0 500 440" role="img" aria-label="Four beats arranged in a square"></svg>
+        <div class="stage-bottom"><span><strong id="meter-label">4/4</strong> <span id="shape-label">Square</span></span><button id="open-sounds" type="button" aria-label="Configure beat sounds" aria-haspopup="dialog" title="Beat sounds"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4M12 2V1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+      </div>
+      <aside>
+        <h1>The Shape of Time</h1>
+        <p class="intro">One corner. One beat.</p>
+        <label class="field-label" for="tempo">Tempo <span>BEATS / MIN</span></label>
+        <div class="tempo-control"><button id="slower" aria-label="Decrease tempo">−</button><input id="tempo" type="number" min="30" max="240" value="100" aria-label="Tempo in beats per minute"><button id="faster" aria-label="Increase tempo">+</button></div>
+        <input id="tempo-slider" type="range" min="30" max="240" value="100" aria-label="Tempo slider">
+        <div class="range-labels"><span>30 BPM</span><button id="tap">Tap tempo</button><span>240 BPM</span></div>
+        <label class="field-label" for="meter">Time signature <span>YOUR POLYGON</span></label>
+        <select id="meter"><option value="3">3/4 · Triangle</option><option value="4" selected>4/4 · Square</option><option value="5">5/4 · Pentagon</option><option value="6">6/4 · Hexagon</option><option value="7">7/4 · Heptagon</option><option value="8">8/4 · Octagon</option></select>
+        <label class="field-label rudiment-label" for="rudiment">Rudiment</label>
+        <div class="rudiment-controls"><select id="rudiment"><option value="none">None</option><option value="single">Single stroke roll</option><option value="double">Double stroke roll</option><option value="triple">Triple stroke roll</option><option value="triplets">Triplets</option><option value="paradiddle">Paradiddle</option><option value="double-paradiddle">Double paradiddle</option><option value="triple-paradiddle">Triple paradiddle</option></select><button id="reverse" type="button" aria-pressed="false" title="Swap left and right sticking" hidden>Reverse</button></div>
+        <button id="play" class="primary">▶ Start playing</button>
+        <p class="shortcut">SPACE TO START / STOP</p>
+        <p id="message" role="status"></p>
+      </aside>
+    </section>
+    <footer><span>metrogon app by: <a href="https://www.instagram.com/tony_bostony/" target="_blank" rel="noopener noreferrer">BostonyFX</a></span><span id="app-version" aria-label="App version"></span></footer>
+  </main>
+  <dialog id="sound-dialog" aria-labelledby="sound-title">
+    <div class="sound-dialog-header"><h2 id="sound-title">Beat sounds</h2><button id="default-sounds" type="button" title="Restore cowbell on beat 1 and side-stick clicks on all other beats">Default</button><button id="close-sounds" type="button" aria-label="Close sound settings" autofocus>×</button></div>
+    <div id="beat-sounds" class="beat-sounds" role="group" aria-label="Sound for each beat"></div>
+    <div class="volume-row"><label for="volume">Volume</label><input id="volume" type="range" min="0" max="100" value="60"></div>
+  </dialog>
+</body>
+</html>
