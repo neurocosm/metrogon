@@ -8,7 +8,27 @@ $('sound-dialog').addEventListener('click',event=>{
 });
 $('app-version').textContent = METROGON_VERSION;
 const names = {3:'Triangle',4:'Square',5:'Pentagon',6:'Hexagon',7:'Heptagon',8:'Octagon'};
-const sounds = ['Cowbell','Side stick','Bass drum','Hi-hat','Snare','Agogo'];
+const sounds = Object.keys(SAMPLE_FILES);
+const sampleBuffers=new Map();
+let sampleLoading, starting=false, startRequest=0;
+async function loadSamples(){
+  if(!sampleLoading)sampleLoading=Promise.all(Object.entries(SAMPLE_FILES).map(async([name,path])=>{
+    const response=await fetch(path);
+    if(!response.ok)throw new Error(`Could not load ${name}`);
+    const buffer=await context.decodeAudioData(await response.arrayBuffer());
+    let peak=0;
+    for(let ch=0;ch<buffer.numberOfChannels;ch++)for(const value of buffer.getChannelData(ch))peak=Math.max(peak,Math.abs(value));
+    let onset=0;
+    if(SAMPLE_CUTS[name]){
+      const channels=Array.from({length:buffer.numberOfChannels},(_,ch)=>buffer.getChannelData(ch));
+      for(let n=0;n<buffer.length;n++)if(channels.some(channel=>Math.abs(channel[n])>peak*.035)){
+        onset=Math.max(0,n/buffer.sampleRate-.003);break;
+      }
+    }
+    sampleBuffers.set(name,{buffer,gain:peak>0?.75/peak:1,onset});
+  })).catch(error=>{sampleLoading=null;throw error;});
+  return sampleLoading;
+}
 const rudiments={
   none:{pattern:'',shape:4},
   single:{pattern:'LR',shape:4},
@@ -62,6 +82,21 @@ function draw(){
   updateSticking();
 }
 function sound(name,time){
+  if(sampleBuffers.has(name)){
+    const sample=sampleBuffers.get(name),source=context.createBufferSource(),level=context.createGain();
+    source.buffer=sample.buffer;source.playbackRate.value=SAMPLE_PLAYBACK_RATES[name]||1;level.gain.value=sample.gain;source.connect(level);level.connect(master);
+    voices.add(source);source.onended=()=>{voices.delete(source);source.disconnect();level.disconnect();};
+    const cut=SAMPLE_CUTS[name];
+    if(cut){
+      const duration=Math.min(cut.duration,sample.buffer.duration-sample.onset);
+      level.gain.setValueAtTime(0,time);
+      level.gain.linearRampToValueAtTime(sample.gain,time+cut.attack);
+      level.gain.setValueAtTime(sample.gain,time+Math.max(cut.attack,duration-cut.release));
+      level.gain.linearRampToValueAtTime(0,time+duration);
+      source.start(time,sample.onset,duration);
+    }else source.start(time);
+    return;
+  }
   const gain=context.createGain();gain.connect(master);
   const duration=name==='Bass drum'?.23:name==='Agogo'?.18:.075;
   gain.gain.setValueAtTime(.0001,time);gain.gain.exponentialRampToValueAtTime(.4,time+.002);gain.gain.exponentialRampToValueAtTime(.0001,time+duration);
@@ -77,11 +112,22 @@ function sound(name,time){
 function schedule(){
   while(nextTime<context.currentTime+.12){const duration=60/bpm;sound(beatSounds[nextBeat],nextTime);queue.push({time:nextTime,beat:nextBeat,duration,stroke:nextStroke++});nextTime+=duration;nextBeat=(nextBeat+1)%count;}
 }
-function stop(){playing=false;clearInterval(timer);for(const voice of voices){try{voice.stop();}catch{}}voices.clear();queue=[];current=null;$('play').textContent='▶ Start playing';$('play').setAttribute('aria-pressed','false');$('status').textContent='Ready to play';draw();}
+function stop(){startRequest++;starting=false;playing=false;clearInterval(timer);for(const voice of voices){try{voice.stop();}catch{}}voices.clear();queue=[];current=null;$('play').textContent='▶ Start playing';$('play').setAttribute('aria-pressed','false');$('status').textContent='Ready to play';draw();}
 async function start(){
-  if(playing)return;
+  if(playing||starting)return;
+  starting=true;const request=++startRequest;
   nextStroke=0;updateSticking();
-  try{context??=new AudioContext();if(!master){master=context.createGain();master.connect(context.destination);}master.gain.value=Number($('volume').value)/100;await context.resume();if(playing)return;playing=true;nextBeat=0;nextTime=context.currentTime+.05;queue=[];current=null;$('play').textContent='■ Stop playing';$('play').setAttribute('aria-pressed','true');$('status').textContent='In the groove';$('message').textContent='';schedule();timer=setInterval(schedule,25);}catch{$('message').textContent='Audio could not start. Please try again in a browser with audio support.';}
+  $('play').textContent='■ Cancel loading';$('status').textContent='Loading sounds…';
+  try{
+    context??=new AudioContext();
+    if(!master){master=context.createGain();master.connect(context.destination);}
+    await context.resume();await loadSamples();
+    if(request!==startRequest||document.hidden)return;
+    master.gain.value=Number($('volume').value)/100;
+    starting=false;playing=true;nextBeat=0;nextTime=context.currentTime+.05;queue=[];current=null;
+    $('play').textContent='■ Stop playing';$('play').setAttribute('aria-pressed','true');
+    $('status').textContent='In the groove';$('message').textContent='';schedule();timer=setInterval(schedule,25);
+  }catch(error){if(request===startRequest){stop();$('message').textContent='Could not load the drum sounds. Check your connection and try again.';}}
 }
 function animate(){
   if(playing){while(queue.length&&queue[0].time<=context.currentTime)current=queue.shift();if(current){const {beat,time,duration}=current;const elapsed=context.currentTime-time;const progress=Math.min(1,elapsed/duration);const a=points[beat],b=points[(beat+1)%count];$('cursor').setAttribute('visibility','visible');$('cursor').setAttribute('cx',a[0]+(b[0]-a[0])*progress);$('cursor').setAttribute('cy',a[1]+(b[1]-a[1])*progress);$('count-display').textContent=beat+1;
@@ -101,10 +147,10 @@ function animate(){
 }
 function tempo(value){bpm=Math.max(30,Math.min(240,Math.round(Number(value)||100)));$('tempo').value=bpm;$('tempo-slider').value=bpm;}
 $('tempo').addEventListener('change',e=>tempo(e.target.value));$('tempo-slider').addEventListener('input',e=>tempo(e.target.value));$('slower').onclick=()=>tempo(bpm-1);$('faster').onclick=()=>tempo(bpm+1);
-$('play').onclick=()=>playing?stop():start();$('meter').onchange=()=>{const resume=playing;stop();count=Number($('meter').value);draw();renderBeatSounds();if(resume)start();};
+$('play').onclick=()=>(playing||starting)?stop():start();$('meter').onchange=()=>{const resume=playing||starting;stop();count=Number($('meter').value);draw();renderBeatSounds();if(resume)start();};
 $('volume').oninput=()=>{if(master)master.gain.setTargetAtTime(Number($('volume').value)/100,context.currentTime,.015);};
 $('rudiment').onchange=()=>{
-  const resume=playing;stop();
+  const resume=playing||starting;stop();
   $('reverse').hidden=$('rudiment').value==='none';
   if($('rudiment').value!=='none')count=rudiments[$('rudiment').value].shape;
   $('meter').value=count;draw();renderBeatSounds();if(resume)start();
@@ -116,7 +162,7 @@ $('reverse').onclick=()=>{
   updateSticking(current?current.stroke-current.beat:0);
 };
 $('tap').onclick=()=>{const now=performance.now();if(taps.length&&now-taps.at(-1)>2000)taps=[];taps.push(now);if(taps.length>5)taps.shift();if(taps.length>1)tempo(60000*(taps.length-1)/(now-taps[0]));};
-document.addEventListener('keydown',event=>{if(event.code==='Space'&&!event.repeat&&!event.target.closest('button,input,select,summary,a')){event.preventDefault();playing?stop():start();}});
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing)stop();});
+document.addEventListener('keydown',event=>{if(event.code==='Space'&&!event.repeat&&!event.target.closest('button,input,select,summary,a')){event.preventDefault();(playing||starting)?stop():start();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&(playing||starting))stop();});
 draw();renderBeatSounds();requestAnimationFrame(animate);
 if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('./sw.js').catch(()=>{$('message').textContent='Offline mode is unavailable in this browser session.';});

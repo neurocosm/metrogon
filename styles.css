@@ -47,3 +47,4 @@ aside{container-type:inline-size;min-width:0}aside h1{font-size:min(30px,8.5cqi)
 #sound-dialog .beat-sounds{grid-template-columns:repeat(2,minmax(0,1fr));max-height: min(200px,55dvh);margin:0;gap:8px}#sound-dialog .beat-sound-row select{min-height:36px}#sound-dialog .volume-row{margin-top:12px;min-height:32px}#sound-dialog .volume-row input{margin:0}
 .stage-bottom strong{font-size:16px;margin-right:6px}.stage-bottom #shape-label{font-size:10px}#open-sounds{border-color:transparent;background:transparent}#open-sounds:hover{background:#293b2e}
 #default-sounds{margin-left:auto;min-height:32px;padding:0 10px;font-size:11px}.sound-dialog-header{gap:8px}
+.sample-credits{display:inline-block;margin-top:10px;font-size:11px;color:var(--muted);text-underline-offset:3px}
