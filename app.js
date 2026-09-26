@@ -25,7 +25,7 @@ async function loadSamples(){
         onset=Math.max(0,n/buffer.sampleRate-.003);break;
       }
     }
-    sampleBuffers.set(name,{buffer,gain:peak>0?.75/peak:1,onset});
+    sampleBuffers.set(name,{buffer,gain:SAMPLE_FIXED_GAINS[name]??(peak>0?.75/peak:1),onset});
   })).catch(error=>{sampleLoading=null;throw error;});
   return sampleLoading;
 }
